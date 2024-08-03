@@ -1,0 +1,31 @@
+#!/bin/bash -x
+
+IMDSV2_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 600")
+MY_INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $${IMDSV2_TOKEN}" http://169.254.169.254/latest/meta-data/instance-id)
+AWS_DEFAULT_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $${IMDSV2_TOKEN}" http://169.254.169.254/latest/meta-data/placement/region)
+export AWS_DEFAULT_REGION
+
+# Attach EIP to the instance
+aws ec2 associate-address --instance-id $${MY_INSTANCE_ID} --allocation-id ${EIP_ALLOCATION_ID}
+sleep 5
+
+# Attach EBS volume to the instance, keep trying just in case it's attached to another instance
+for TRY in {1..10}; do
+  aws ec2 attach-volume --instance-id $${MY_INSTANCE_ID} --volume-id ${VOLUME_ID} --device /dev/sdf && break
+  sleep 6
+done
+
+# Wait for the device to be available, then mount it
+for TRY in {1..10}; do
+  [ -e /dev/nvme1n1p1 ] && break
+  sleep 6
+done
+
+if [ $TRY -eq 10 ]; then
+  echo "Failed to attach volume"
+  poweroff
+fi
+
+# Mount the EBS volume
+mkdir /data
+mount /dev/nvme1n1p1 /data && sed -i 's:/home/ubuntu:/data/ubuntu:' /etc/passwd
