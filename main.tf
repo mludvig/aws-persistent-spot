@@ -57,8 +57,8 @@ resource "aws_security_group" "main" {
 }
 
 resource "aws_iam_role" "main" {
-  name                = local.project_name
-  assume_role_policy  = <<EOF
+  name               = local.project_name
+  assume_role_policy = <<EOF
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -72,29 +72,32 @@ resource "aws_iam_role" "main" {
     ]
 }
 EOF
-  managed_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
-  inline_policy {
-    policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ec2:AttachVolume",
-                "ec2:DettachVolume",
-                "ec2:DescribeVolumes",
-                "ec2:AssociateAddress",
-                "ec2:DisassociateAddress",
-                "ec2:DescribeAddresses",
-                "ec2:DescribeInstances"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-EOF
-  }
+  managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+    "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+  ]
+  #   inline_policy {
+  #     policy = <<EOF
+  # {
+  #     "Version": "2012-10-17",
+  #     "Statement": [
+  #         {
+  #             "Effect": "Allow",
+  #             "Action": [
+  #                 "ec2:AttachVolume",
+  #                 "ec2:DettachVolume",
+  #                 "ec2:DescribeVolumes",
+  #                 "ec2:AssociateAddress",
+  #                 "ec2:DisassociateAddress",
+  #                 "ec2:DescribeAddresses",
+  #                 "ec2:DescribeInstances"
+  #             ],
+  #             "Resource": "*"
+  #         }
+  #     ]
+  # }
+  # EOF
+  #   }
 }
 
 resource "aws_iam_instance_profile" "main" {
@@ -143,14 +146,17 @@ resource "aws_autoscaling_group" "main" {
   max_size            = 1
   desired_capacity    = 0
   vpc_zone_identifier = [data.aws_subnet.default.id]
-  tag {
-    key                 = "Name"
-    value               = local.project_name
-    propagate_at_launch = true
+  dynamic "tag" {
+    # Needed to propagate tags to the instances
+    for_each = var.default_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
   }
 }
 
-// schedule asg to terminate at night
 resource "aws_autoscaling_schedule" "main" {
   scheduled_action_name  = "${local.project_name}-shutdown"
   min_size               = 0
@@ -164,8 +170,7 @@ resource "aws_autoscaling_schedule" "main" {
 # === Variables ===
 
 variable "instance_type" {
-  type    = string
-  default = "inf2.8xlarge"
+  type = string
 }
 
 variable "aws_region" {
@@ -179,7 +184,8 @@ variable "az_name" {
 variable "default_tags" {
   type = map(any)
   default = {
-    Name = "inf2"
+    # Must have at least 'Name' tag
+    Name = "spot-instance"
   }
 }
 
