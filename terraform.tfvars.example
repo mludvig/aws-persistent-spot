@@ -1,0 +1,16 @@
+instance_type     = "inf2.xlarge"
+aws_region        = "ap-southeast-2"
+az_name           = "ap-southeast-2b"
+#ami_id_ssm        = "/aws/service/neuron/dlami/base/ubuntu-22.04/latest/image_id"
+ami_id            = "ami-04c2f715e35b0d1c0" # Deep Learning AMI Neuron (Ubuntu 22.04) in ap-southeast-2
+
+prefix_list_id    = "pl-01234567890abcdef"  # Prefix list from which the security group will allow traffic
+key_name          = "you-key-name"
+asg_shutdown_cron = "0 21 * * *"            # cron expression: minute hour dayofmonth month dayofweek
+asg_shutdown_tz   = "Pacific/Auckland"      # cron timezone
+ebs_size          = 150
+default_tags = {
+  Name        = "inf2poc"                   # Project name, all resources will be tagged with this Name
+  Owner       = "you@example.com"           # Any other tags your organization requires
+  AnotherTag  = "1234-5678-9012"
+}
