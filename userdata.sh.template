@@ -15,9 +15,11 @@ for TRY in {1..10}; do
   sleep 6
 done
 
+DATA_DISK_DEVICE="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_$(sed 's/vol-/vol/' <<< ${VOLUME_ID})"
+
 # Wait for the device to be available, then mount it
 for TRY in {1..10}; do
-  [ -e /dev/nvme1n1 ] && break
+  [ -e $${DATA_DISK_DEVICE} ] && break
   sleep 6
 done
 
@@ -37,4 +39,4 @@ fi
 
 # Mount the EBS volume
 mkdir /data
-mount /dev/nvme1n1 /data && sed -i 's:/home/ubuntu:/data/ubuntu:' /etc/passwd
+mount $${DATA_DISK_DEVICE} /data && sed -i 's:/home/ubuntu:/data/ubuntu:' /etc/passwd

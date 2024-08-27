@@ -18,9 +18,15 @@ provider "aws" {
 
 locals {
   project_name = var.default_tags["Name"]
+  ami_id       = try(coalesce(var.ami_id, try(nonsensitive(data.aws_ssm_parameter.this[0].value), null)), null)
 }
 
 # === Data ===
+
+data "aws_ssm_parameter" "this" {
+  count = var.ami_id == null ? 1 : 0
+  name  = var.ami_id_ssm
+}
 
 data "aws_vpc" "default" {
   default = true
@@ -118,7 +124,7 @@ resource "aws_ebs_volume" "main" {
 }
 
 resource "aws_launch_template" "main" {
-  image_id               = var.ami_id
+  image_id               = local.ami_id
   instance_type          = var.instance_type
   name                   = local.project_name
   vpc_security_group_ids = [aws_security_group.main.id]
@@ -195,7 +201,13 @@ variable "ebs_size" {
 }
 
 variable "ami_id" {
-  type = string
+  type    = string
+  default = null
+}
+
+variable "ami_id_ssm" {
+  type    = string
+  default = null
 }
 
 variable "prefix_list_id" {
