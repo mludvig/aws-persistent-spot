@@ -18,22 +18,30 @@ provider "aws" {
 
 locals {
   project_name = var.default_tags["Name"]
-  ami_id       = try(coalesce(var.ami_id, try(nonsensitive(data.aws_ssm_parameter.this[0].value), null)), null)
+  ami_id       = try(coalesce(var.ami_id, try(nonsensitive(data.aws_ssm_parameter.ami_id[0].value), null)), null)
+  vpc_id       = try(coalesce(var.vpc_id, try(data.aws_vpc.default[0].id, null)), null)
+  subnet_id    = try(coalesce(var.subnet_id, try(data.aws_subnet.default[0].id, null)), null)
 }
 
 # === Data ===
 
-data "aws_ssm_parameter" "this" {
+data "aws_ssm_parameter" "ami_id" {
   count = var.ami_id == null ? 1 : 0
   name  = var.ami_id_ssm
 }
 
 data "aws_vpc" "default" {
+  count = var.vpc_id == null ? 1 : 0
   default = true
+  # filter {
+  #   name   = "cidr"
+  #   values = ["172.31.0.0/16"]
+  # }
 }
 
 data "aws_subnet" "default" {
-  vpc_id = data.aws_vpc.default.id
+  count = var.subnet_id == null ? 1 : 0
+  vpc_id = local.vpc_id
   filter {
     name   = "availability-zone"
     values = [var.az_name]
@@ -48,6 +56,7 @@ data "aws_subnet" "default" {
 
 resource "aws_security_group" "main" {
   name = local.project_name
+  vpc_id = local.vpc_id
   ingress {
     from_port       = 0
     to_port         = 0
@@ -151,7 +160,7 @@ resource "aws_autoscaling_group" "main" {
   min_size            = 0
   max_size            = 1
   desired_capacity    = 0
-  vpc_zone_identifier = [data.aws_subnet.default.id]
+  vpc_zone_identifier = [local.subnet_id]
   dynamic "tag" {
     # Needed to propagate tags to the instances
     for_each = var.default_tags
@@ -212,6 +221,16 @@ variable "ami_id_ssm" {
 
 variable "prefix_list_id" {
   type = string
+}
+
+variable "vpc_id" {
+  type = string
+  default = null
+}
+
+variable "subnet_id" {
+  type = string
+  default = null
 }
 
 variable "key_name" {
